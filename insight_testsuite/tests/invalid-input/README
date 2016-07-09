@@ -1,0 +1,4 @@
+this case includes the following cases:
+1. Invalid JSON
+2. Missing actor and target names
+3. Both actor and target share the same name
