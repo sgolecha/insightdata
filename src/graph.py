@@ -15,7 +15,7 @@ class Edge(object):
     """
 
     def __init__(self, tstamp, node1, node2):
-        """Initialize the attributes of an Edge.
+        """Initializes the attributes of an Edge.
         Since the edge is to be treated as undirected, we sort the 
         names of the node1 and node2 lexicographically and use the 
         earlier node as source and the later one as target.
@@ -34,11 +34,11 @@ class Edge(object):
 
         self.name = Edge.derive_name(node1, node2)
 
+    
     def __repr__(self):
         return 'Edge(ts=%d, name=%s)' % (self.tstamp, self.name)
 
         
-
     @staticmethod
     def derive_name(node1, node2):
         if node1 < node2:
@@ -58,14 +58,18 @@ class Node(object):
         self.name = name
         self.degree = 0
 
+    
     def __repr__(self):
         return 'Node(name=%s)' % (self.name)
 
+    
     def incr_degree(self):
         self.degree = self.degree + 1
 
+    
     def decr_degree(self):
         self.degree = self.degree - 1
+
 
 class EdgeList(object):
     """represents a collection of edges with the
@@ -110,6 +114,7 @@ class TxGraph(object):
         self.edgeMap = SortedDict() #sorted by edge name
         self.nodeMap = SortedDict() #sorted by node name
 
+    
     def __calculate_median(self):
         """calculates median by adding degrees to a sortedlist
         """
