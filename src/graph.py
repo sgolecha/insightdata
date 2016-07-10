@@ -102,7 +102,7 @@ class TxGraph(object):
                             with key being the name of an Edge
         nodeMap(dict)   :   this represents a collection of Nodes with a window
                             with key being the name of the Node
-        
+        degreeList(list):   list of degrees of noded (sorted)
     """
 
     WINDOW_SIZE = 60
@@ -113,27 +113,30 @@ class TxGraph(object):
         self.txMap = SortedDict() #sorted by unix epoch (timestamp)
         self.edgeMap = SortedDict() #sorted by edge name
         self.nodeMap = SortedDict() #sorted by node name
-
+        self.degreeList = SortedList() #sorted by degreeList
     
-    def __calculate_median(self):
+    def __calculate_median(self, use_existing_list=False):
         """calculates median by adding degrees to a sortedlist
         """
-        degreeList = SortedList()
-        for node in self.nodeMap.itervalues():
-            if node.degree > 0:
-                degreeList.add(node.degree)
+        if not use_existing_list:
+            #lets reconstruct the list
+            self.degreeList = SortedList()
+        
+            for node in self.nodeMap.itervalues():
+                if node.degree > 0:
+                    self.degreeList.add(node.degree)
 
-        listLen = len(degreeList)
+        listLen = len(self.degreeList)
         if listLen == 0:
             raise Exception("No items in the degreeList")
 
         if listLen == 1:
-            return degreeList[0]/1.0
+            return self.degreeList[0]/1.0
 
         if (listLen % 2) == 0: 
-            return (degreeList[listLen/2] + degreeList[(listLen/2) - 1]) / 2.0
+            return (self.degreeList[listLen/2] + self.degreeList[(listLen/2) - 1]) / 2.0
         
-        return degreeList[listLen/2]/1.0
+        return self.degreeList[listLen/2]/1.0
 
     
     def __get_edgelist(self, tstamp, create=True):
@@ -169,12 +172,13 @@ class TxGraph(object):
         of an edge
         """
 
-        node = self.__getnode_with_name(edge.source)
-        node.incr_degree()
+        src = self.__getnode_with_name(edge.source)
+        src.incr_degree()
         
-        node = self.__getnode_with_name(edge.target)
-        node.incr_degree()
-    
+        tar = self.__getnode_with_name(edge.target)
+        tar.incr_degree()
+   
+        return (src.degree, tar.degree)
     
     def __decr_degree_of_edge_nodes(self, edge):
         """decrements the degree of the two nodes
@@ -184,7 +188,7 @@ class TxGraph(object):
         self.__decr_degree_of_node(edge.source)
         self.__decr_degree_of_node(edge.target)
    
-  
+    
     def __decr_degree_of_node(self, name):
         """decrements the degree of a node
         and removes it from the nodeMap if degree is 0
@@ -300,14 +304,31 @@ class TxGraph(object):
             1. find the edgelist with the same timestamp (if not create it)
             2. add this edge to the edgelist and edgemap
             4. create new Nodes for the edges if needed or update their degrees
-            5. update the median
+            5. update the degreeList with the new degrees
+            6. recalculate the median but use the existing degreeList
             """
             edgeList = self.__get_edgelist(tstamp)
             edgeList.edges[newEdge.name] = newEdge
             self.edgeMap[newEdge.name] = newEdge
 
-            self.__incr_degree_of_edge_nodes(newEdge)
-            self.median = self.__calculate_median()
+            """
+            this is optimization because most of the degrees of the 
+            nodes hasn't changed and therefore we can reuse the existing list
+            """
+            srcDegree, tarDegree = self.__incr_degree_of_edge_nodes(newEdge)
+            if srcDegree == 1:
+                self.degreeList.add(1)
+            else:
+                self.degreeList.remove(srcDegree - 1)
+                self.degreeList.add(srcDegree)
+
+            if tarDegree == 1:
+                self.degreeList.add(1)
+            else:
+                self.degreeList.remove(tarDegree - 1)
+                self.degreeList.add(tarDegree)
+
+            self.median = self.__calculate_median(use_existing_list=True)
             return
 
         """this transaction is newer and we need to move the window
@@ -316,7 +337,7 @@ class TxGraph(object):
         2. add the new edge to the edgelist
         3. add the new edge to the edgemap
         4. create new Nodes of the edges if needed or update their degrees
-        5. 
+        5. calculate the median (but reconstruct the degreeList) 
         """
         #this tx is newer and we need to move the window
         self.highMarker = tstamp
